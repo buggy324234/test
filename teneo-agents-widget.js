@@ -24,6 +24,84 @@
             overflow-x: auto;
         }
 
+        /* Search Bar */
+        .teneo-widget-search-row {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 12px;
+            gap: 8px;
+            width: 100%;
+            max-width: 1045px;
+            height: 50px;
+            background: #25272B;
+            margin: 0 auto 2rem auto;
+        }
+
+        .teneo-widget-search-frame {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 0px;
+            gap: 12px;
+            width: 100%;
+            height: 18px;
+        }
+
+        .teneo-widget-search-icon {
+            width: 18px;
+            height: 18px;
+            flex: none;
+            background: transparent;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .teneo-widget-search-icon::before {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border: 1.5px solid #9EB5BC;
+            border-radius: 50%;
+            top: 1px;
+            left: 1px;
+        }
+
+        .teneo-widget-search-icon::after {
+            content: '';
+            position: absolute;
+            width: 5px;
+            height: 1.5px;
+            background: #9EB5BC;
+            transform: rotate(45deg);
+            bottom: 2px;
+            right: 1px;
+        }
+
+        .teneo-widget-search-input {
+            width: 100%;
+            height: 16px;
+            font-family: 'PP Neue Montreal';
+            font-style: normal;
+            font-weight: 400;
+            font-size: 20px;
+            line-height: 16px;
+            color: #FAFCFC;
+            background: transparent;
+            border: none;
+            outline: none;
+            flex: 1;
+        }
+
+        .teneo-widget-search-input::placeholder {
+            color: #FAFCFC;
+            opacity: 0.7;
+        }
+
         .teneo-widget-section {
             margin-bottom: 4rem;
             display: flex;
@@ -920,18 +998,34 @@
                     </div>
                     
                     <div id="teneo-content" style="display: none;">
-                        <div class="teneo-widget-section">
+                        <!-- Search Bar -->
+                        <div class="teneo-widget-search-row">
+                            <div class="teneo-widget-search-frame">
+                                <div class="teneo-widget-search-icon"></div>
+                                <input type="text" class="teneo-widget-search-input" placeholder="Search Agents..." id="teneo-widget-search">
+                            </div>
+                        </div>
+                        
+                        <!-- Popular Agents Section -->
+                        <div class="teneo-widget-section" id="popular-section">
                             <h2 class="teneo-widget-section-title">Popular Agents</h2>
                             <div class="teneo-widget-grid" id="popular-grid"></div>
                         </div>
                         
-                        <div class="teneo-widget-section">
+                        <!-- More Agents Section -->
+                        <div class="teneo-widget-section" id="more-section">
                             <h2 class="teneo-widget-section-title">More Agents</h2>
                             <div class="teneo-widget-grid" id="more-grid"></div>
                             
                             <div class="teneo-widget-load-more" id="load-more" style="display: none;">
                                 <button onclick="window.teneoWidget?.showMoreAgents()" class="teneo-widget-load-more-btn">Load more</button>
                             </div>
+                        </div>
+                        
+                        <!-- Search Results Section -->
+                        <div class="teneo-widget-section" id="search-results-section" style="display: none;">
+                            <h2 class="teneo-widget-section-title">Search Results</h2>
+                            <div class="teneo-widget-grid" id="search-results-grid"></div>
                         </div>
                     </div>
                 </div>
@@ -1038,6 +1132,7 @@
         }
 
         processAgents() {
+            // Sort the agents
             this.agents.sort((a, b) => {
                 const aScore = this.getAgentScore(a);
                 const bScore = this.getAgentScore(b);
@@ -1049,7 +1144,22 @@
                 return (a.agent_name || '').localeCompare(b.agent_name || '');
             });
 
-            this.filteredAgents = [...this.agents];
+            // Reset filteredAgents if empty or if they match all agents (no active filter)
+            if (this.filteredAgents.length === 0 || this.filteredAgents.length === this.agents.length) {
+                this.filteredAgents = [...this.agents];
+            } else {
+                // Sort the already filtered agents
+                this.filteredAgents.sort((a, b) => {
+                    const aScore = this.getAgentScore(a);
+                    const bScore = this.getAgentScore(b);
+                    
+                    if (aScore !== bScore) {
+                        return bScore - aScore;
+                    }
+                    
+                    return (a.agent_name || '').localeCompare(b.agent_name || '');
+                });
+            }
         }
 
         getAgentScore(agent) {
@@ -1074,6 +1184,11 @@
                 const hasMoreAgents = this.filteredAgents.length > moreAgentsEnd;
                 loadMoreBtn.style.display = hasMoreAgents && !this.showingMore ? 'block' : 'none';
             }
+        }
+
+        renderSearchResults() {
+            // Show all search results
+            this.renderAgentGrid('search-results-grid', this.filteredAgents);
         }
 
         renderAgentGrid(gridId, agents) {
@@ -1163,10 +1278,22 @@
         }
 
         setupEventListeners() {
+            // Search input in main widget
+            const widgetSearch = document.getElementById('teneo-widget-search');
+            if (widgetSearch) {
+                const debouncedFilter = this.debounce(() => {
+                    this.filterAgents();
+                }, 300);
+                widgetSearch.addEventListener('input', debouncedFilter);
+            }
+            
             // Search input in manage popup
             const manageSearch = document.getElementById('teneo-manage-search');
             if (manageSearch) {
-                manageSearch.addEventListener('input', this.debounce(() => this.filterManageAgents(), 300));
+                const debouncedManageFilter = this.debounce(() => {
+                    this.filterManageAgents();
+                }, 300);
+                manageSearch.addEventListener('input', debouncedManageFilter);
             }
             
             // Filter button
@@ -1240,6 +1367,63 @@
             setTimeout(() => {
                 agents.forEach(agent => this.loadAgentImage(agent));
             }, 100);
+        }
+
+        filterAgents() {
+            const searchTerm = document.getElementById('teneo-widget-search')?.value.trim().toLowerCase() || '';
+            const popularSection = document.getElementById('popular-section');
+            const moreSection = document.getElementById('more-section');
+            const searchResultsSection = document.getElementById('search-results-section');
+            
+            if (!searchTerm) {
+                // No search term - show normal sections
+                this.filteredAgents = [...this.agents];
+                if (popularSection) popularSection.style.display = 'flex';
+                if (moreSection) moreSection.style.display = 'flex';
+                if (searchResultsSection) searchResultsSection.style.display = 'none';
+                this.processAgents();
+                this.renderAgents();
+            } else {
+                // Has search term - hide sections, show only search results
+                this.filteredAgents = this.agents.filter(agent => {
+                    const agentName = (agent.agent_name || '').toLowerCase();
+                    const creatorName = (agent.creator_name || '').toLowerCase();
+                    const description = (agent.description || '').toLowerCase();
+                    
+                    return agentName.includes(searchTerm) ||
+                           creatorName.includes(searchTerm) ||
+                           description.includes(searchTerm);
+                });
+                
+                if (popularSection) popularSection.style.display = 'none';
+                if (moreSection) moreSection.style.display = 'none';
+                
+                if (this.filteredAgents.length > 0) {
+                    // Sort filtered results
+                    this.filteredAgents.sort((a, b) => {
+                        const aScore = this.getAgentScore(a);
+                        const bScore = this.getAgentScore(b);
+                        
+                        if (aScore !== bScore) {
+                            return bScore - aScore;
+                        }
+                        
+                        return (a.agent_name || '').localeCompare(b.agent_name || '');
+                    });
+                    
+                    if (searchResultsSection) searchResultsSection.style.display = 'flex';
+                    this.renderSearchResults();
+                } else {
+                    // No results found
+                    if (searchResultsSection) {
+                        searchResultsSection.style.display = 'flex';
+                        const searchGrid = document.getElementById('search-results-grid');
+                        if (searchGrid) {
+                            searchGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #BAD3D8; padding: 2rem; font-size: 1.2rem;">No agents found matching your search.</div>';
+                        }
+                    }
+                }
+            }
         }
 
         filterManageAgents() {
@@ -1337,6 +1521,8 @@
             const content = document.getElementById('teneo-content');
             if (loading) loading.style.display = 'none';
             if (content) content.style.display = 'block';
+            // Re-setup event listeners after content is shown to ensure search works
+            this.setupEventListeners();
         }
 
         showError() {
@@ -1348,13 +1534,11 @@
 
         debounce(func, wait) {
             let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func.apply(this, args);
-                };
+            return (...args) => {
                 clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
+                timeout = setTimeout(() => {
+                    func.apply(this, args);
+                }, wait);
             };
         }
     }
